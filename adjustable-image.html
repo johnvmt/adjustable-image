@@ -1,0 +1,174 @@
+<template>
+	<div style="height: 100%; width: 100%; background-size: 100% 100%; overflow: hidden;">
+		<div style="position: relative; overflow: hidden; width: 100%; height: 100%;">
+			<img style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" />
+		</div>
+	</div>
+</template>
+
+<script>
+	(function(window, document) {
+		// this html page
+		var componentDoc =  (document._currentScript || document.currentScript).ownerDocument;
+		var componentDir = componentDoc.baseURI.substring(0, componentDoc.baseURI.lastIndexOf('/'));
+
+		// Gets content from <template>
+		var template = componentDoc.querySelector('template').content;
+
+		// Creates an object based in the HTML Element prototype
+		var ElementProto = Object.create(HTMLElement.prototype);
+
+		// Fires when an instance of the element is created
+		ElementProto.createdCallback = function() {
+			var self = this;
+
+			// Creates the shadow root
+			self.shadowRoot = self.createShadowRoot();
+
+			// Adds a template clone into shadow root
+			self.shadowRoot.appendChild(document.importNode(template, true));
+
+			// Get div
+			self.imageContainer = self.shadowRoot.querySelector('div');
+
+			// setup attributes
+			var elementAttributeDefaults = {
+/*				height: "100%",
+				width: "100%",
+
+				rotation: '7deg' */
+				opacity: 1,
+				croptop: 0,
+				cropleft: 0,
+				cropright:0,
+				cropbottom: 0
+			};
+
+			self.elementAttributes = objectExtend(elementAttributeDefaults, self.getAttributes());
+			for(attribute in self.elementAttributes) {
+				self.setParam(attribute, self.elementAttributes[attribute]);
+			}
+
+			// set background color and/or image
+			if(typeof self.elementAttributes['background-image'] === "string")
+				imageContainer.style['background-image'] = 'url("' + self.elementAttributes['background-image'] + '")';
+			if(typeof self.elementAttributes['background-color'] === "string")
+				imageContainer.style['background-color'] = self.elementAttributes['background-color'];
+
+			function setOpacity(opacity) {
+				//imageContainer.querySelector('canvas').style.opacity = opacity;
+			}
+
+			function onWindowResize() {
+
+			}
+		};
+
+		ElementProto.setParam = function(param, value) {
+			this.elementAttributes[param] = value;
+			var elementAttributes = this.elementAttributes;
+			var shadowRoot = this.shadowRoot;
+			var imgContainer = shadowRoot.querySelector('div').querySelector('div');
+			var img = imgContainer.querySelector('img');
+
+			switch(param) {
+				case 'src':
+					img[param] = value;
+					break;
+				case 'cropleft':
+				case 'cropright':
+					var cropLeft = Math.abs(Number(elementAttributes.cropleft));
+					var cropRight = Math.abs(Number(elementAttributes.cropright));
+					if(cropLeft + cropRight >= 100) { // trying to crop whole image
+						img.style.opacity = 0;
+					}
+					else {
+						var width = 100 * (100 / (100 - (cropLeft + cropRight)));
+						var left = (cropLeft + cropRight <= 0) ? 0 : -1 * (cropLeft / (cropLeft + cropRight)) * (width - 100);
+						console.log("left", left, "width", width);
+						img.style.left = left + '%';
+						img.style.width = width + '%';
+						img.style.opacity = elementAttributes.opacity;
+					}
+					break;
+				case 'croptop':
+				case 'cropbottom':
+					var cropTop = Math.abs(Number(elementAttributes.croptop));
+					var cropBottom = Math.abs(Number(elementAttributes.cropbottom));
+					if(cropTop + cropBottom >= 100) { // trying to crop whole image
+						img.style.opacity = 0;
+					}
+					else {
+						var height = 100 * (100 / (100 - (cropTop + cropBottom)));
+						var top = (cropTop + cropBottom <= 0) ? 0 : -1 * (cropTop / (cropTop + cropBottom)) * (height - 100);
+						console.log("height", height, "top", top);
+						img.style.top = top + '%';
+						img.style.height = height + '%';
+						img.style.opacity = elementAttributes.opacity;
+					}
+					break;
+				default:
+
+					console.log(param, value);
+					break;
+
+			}
+
+				/* imgSize(value, function(error, size) {
+					var crop = {left: 500, right: 500};
+					imgContainer.style.width = size.width - crop.left - crop.right;
+					imgContainer.style.height = size.height;
+
+					console.log(imgContainer.style);
+					img.style.left = crop.left;
+					//img.style.width = 'calc(100% + ' + (crop.left + crop.right) +'px)';
+
+					imgContainer.style.transform = 'scale(0.5)';
+					console.log(error, size);
+				}); */
+
+//			this.image.style.clip = 'rect(0px,500px,500px,50px)';
+//			this.image.style.transform = 'rotate(45deg)';
+		};
+
+		// Fires when an attribute was added, removed, or updated
+		ElementProto.attributeChangedCallback = function(attr, oldVal, newVal) {
+			// TODO when some camera value changes, step out of active view
+			console.log("CH");
+			this.setParam(attr, newVal);
+		};
+
+		ElementProto.getAttributes = function() {
+			var attributes = {};
+			for(var ctr = 0; ctr < this.attributes.length; ctr++) {
+				attributes[this.attributes[ctr].nodeName] = this.attributes[ctr].nodeValue;
+			}
+			return attributes;
+		};
+
+		function imgSize(src, callback) {
+			var img = new Image();
+			img.onload = function() {
+				callback(null, {height: img.height, width: img.width});
+			};
+			img.src = src; // this must be done AFTER setting onload
+		}
+
+		function objectExtend() {
+			var merged = {};
+			for(argumentkey in arguments) { // loop over objects
+				if (arguments.hasOwnProperty(argumentkey)) {
+					for (var attrname in arguments[argumentkey]) { // loop over attributes of object
+						if(arguments[argumentkey].hasOwnProperty(attrname))
+							merged[attrname] = arguments[argumentkey][attrname];
+					}
+				}
+			}
+			return merged;
+		}
+
+		window.AdjustableImage = document.registerElement('adjustable-image', {
+			prototype: ElementProto
+		});
+	})(window, document);
+</script>
