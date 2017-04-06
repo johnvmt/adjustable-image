@@ -1,174 +1,346 @@
 <template>
-	<div style="height: 100%; width: 100%; background-size: 100% 100%; overflow: hidden;">
-		<div style="position: relative; overflow: hidden; width: 100%; height: 100%;">
-			<img style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" />
-		</div>
+	<style></style>
+	<div id="outerContainer" style="width: 100%; height: 100%; overflow: hidden;">
+		<div id="container" style="width: 100%; height: 100%; background-color: #00ff00; clip-path: url(#cropRectangle); overflow: hidden;"></div>
 	</div>
+	<svg height="0" width="0" style="display: none;">
+		<defs>
+			<clipPath id="cropRectangle">
+				<rect x="50" y="50" width="50" height="50" />
+			</clipPath>
+			<filter id="colorize">
+				<feColorMatrix
+						type="matrix"
+						values="1	0	0	0	0
+								0	1	0	0	0
+								0	0	1	0	0
+								0	0	0	1	0 ">
+				</feColorMatrix>
+			</filter>
+		</defs>
+	</svg>
 </template>
 
 <script>
 	(function(window, document) {
-		// this html page
+		// Create references to this file and directory
 		var componentDoc =  (document._currentScript || document.currentScript).ownerDocument;
 		var componentDir = componentDoc.baseURI.substring(0, componentDoc.baseURI.lastIndexOf('/'));
+		var componentFile = componentDoc.baseURI.substring(componentDoc.baseURI.lastIndexOf('/') + 1);
+		var componentName = componentFile.substring(0, componentFile.lastIndexOf('.'));
 
-		// Gets content from <template>
-		var template = componentDoc.querySelector('template').content;
+		// Set default element attributes
+		var elementAttributesDefault = {};
 
-		// Creates an object based in the HTML Element prototype
-		var ElementProto = Object.create(HTMLElement.prototype);
+		// Object constructor (but most should go into createdCalledback)
+		function Element() {
+
+		}
+
+		// Inherits from HTMLElement
+		Element.prototype = Object.create(HTMLElement.prototype);
+
+		Element.prototype.attachedCallback = function() {
+
+			this.crop();
+		};
 
 		// Fires when an instance of the element is created
-		ElementProto.createdCallback = function() {
-			var self = this;
+		Element.prototype.createdCallback = function() {
+			var thisElem = this;
 
 			// Creates the shadow root
-			self.shadowRoot = self.createShadowRoot();
+			thisElem.shadowRoot = thisElem.createShadowRoot();
 
 			// Adds a template clone into shadow root
-			self.shadowRoot.appendChild(document.importNode(template, true));
+			thisElem.shadowRoot.appendChild(document.importNode(componentDoc.querySelector('template').content, true));
 
-			// Get div
-			self.imageContainer = self.shadowRoot.querySelector('div');
+			// get and merge params
+			thisElem.elementAttributes = objectExtend(elementAttributesDefault, thisElem.getAttributes());
 
-			// setup attributes
-			var elementAttributeDefaults = {
-/*				height: "100%",
-				width: "100%",
-
-				rotation: '7deg' */
-				opacity: 1,
-				croptop: 0,
-				cropleft: 0,
-				cropright:0,
-				cropbottom: 0
+			// Get the container (div)
+			thisElem._elements = {
+				container: thisElem.shadowRoot.querySelector('#container'),
+				clipPath: thisElem.shadowRoot.querySelector('svg #cropRectangle rect'),
+				feColorMatrix: thisElem.shadowRoot.querySelector('svg feColorMatrix')
 			};
 
-			self.elementAttributes = objectExtend(elementAttributeDefaults, self.getAttributes());
-			for(attribute in self.elementAttributes) {
-				self.setParam(attribute, self.elementAttributes[attribute]);
-			}
+			console.log(thisElem._elements.clipPath);
 
-			// set background color and/or image
-			if(typeof self.elementAttributes['background-image'] === "string")
-				imageContainer.style['background-image'] = 'url("' + self.elementAttributes['background-image'] + '")';
-			if(typeof self.elementAttributes['background-color'] === "string")
-				imageContainer.style['background-color'] = self.elementAttributes['background-color'];
+			// Copy contents
+			thisElem.copyChildren(thisElem, thisElem._elements.container);
 
-			function setOpacity(opacity) {
-				//imageContainer.querySelector('canvas').style.opacity = opacity;
-			}
+			// Set up observer on children and character data. Remove if not needed
+			thisElem.addObservers();
 
-			function onWindowResize() {
+			thisElem.applyCss();
+			thisElem.applyMatrix();
 
-			}
+
+			// Triggered when the window is resized
+			window.addEventListener('resize', function() {
+				thisElem.crop();
+			});
 		};
 
-		ElementProto.setParam = function(param, value) {
-			this.elementAttributes[param] = value;
-			var elementAttributes = this.elementAttributes;
-			var shadowRoot = this.shadowRoot;
-			var imgContainer = shadowRoot.querySelector('div').querySelector('div');
-			var img = imgContainer.querySelector('img');
+		Element.prototype.crop = function() {
+			var thisElem = this;
 
-			switch(param) {
-				case 'src':
-					img[param] = value;
-					break;
-				case 'cropleft':
-				case 'cropright':
-					var cropLeft = Math.abs(Number(elementAttributes.cropleft));
-					var cropRight = Math.abs(Number(elementAttributes.cropright));
-					if(cropLeft + cropRight >= 100) { // trying to crop whole image
-						img.style.opacity = 0;
-					}
-					else {
-						var width = 100 * (100 / (100 - (cropLeft + cropRight)));
-						var left = (cropLeft + cropRight <= 0) ? 0 : -1 * (cropLeft / (cropLeft + cropRight)) * (width - 100);
-						console.log("left", left, "width", width);
-						img.style.left = left + '%';
-						img.style.width = width + '%';
-						img.style.opacity = elementAttributes.opacity;
-					}
-					break;
-				case 'croptop':
-				case 'cropbottom':
-					var cropTop = Math.abs(Number(elementAttributes.croptop));
-					var cropBottom = Math.abs(Number(elementAttributes.cropbottom));
-					if(cropTop + cropBottom >= 100) { // trying to crop whole image
-						img.style.opacity = 0;
-					}
-					else {
-						var height = 100 * (100 / (100 - (cropTop + cropBottom)));
-						var top = (cropTop + cropBottom <= 0) ? 0 : -1 * (cropTop / (cropTop + cropBottom)) * (height - 100);
-						console.log("height", height, "top", top);
-						img.style.top = top + '%';
-						img.style.height = height + '%';
-						img.style.opacity = elementAttributes.opacity;
-					}
-					break;
-				default:
+			var cropTop = Number(thisElem.getAttribute('crop-top'));
+			var cropBottom = Number(thisElem.getAttribute('crop-bottom'));
+			var cropLeft = Number(thisElem.getAttribute('crop-left'));
+			var cropRight = Number(thisElem.getAttribute('crop-right'));
 
-					console.log(param, value);
-					break;
+			window.requestAnimationFrame(function() {
+				console.log("HIT");
+				var originalWidth = thisElem._elements.container.clientWidth;
+				var originalHeight = thisElem._elements.container.clientHeight;
 
+				var clipX = (cropLeft / 100) * originalWidth;
+				var clipY = (cropTop / 100) * originalHeight;
+				var clipWidth = originalWidth * ((100 - (cropLeft + cropRight)) / 100);
+				var clipHeight = originalHeight * ((100 - (cropTop + cropBottom)) / 100);
+
+				// Crop
+				thisElem._elements.clipPath.setAttribute('x', clipX);
+				thisElem._elements.clipPath.setAttribute('y', clipY);
+				thisElem._elements.clipPath.setAttribute('width', clipWidth);
+				thisElem._elements.clipPath.setAttribute('height', clipHeight);
+
+				// Reposition & scale
+				thisElem._elements.container.style.position = 'relative';
+				thisElem._elements.container.style.transformOrigin = 'top left';
+				thisElem._elements.container.style.transform = 'scale(' + originalWidth / clipWidth + ', ' + originalHeight / clipHeight + ') translate(' + -1 * clipX + 'px, ' + -1 * clipY + 'px)';
+			});
+		};
+
+		Element.prototype.applyCss = function() {
+			var filters = this.getAttributes();
+
+			var filterPrefix = 'filter-';
+			var filtersString = 'url(#colorize)';
+			objectForEach(filters, function(filterVal, filterKey) {
+				if(filterKey.indexOf(filterPrefix) === 0)
+					filtersString += filterKey.substr(filterPrefix.length) + '(' + filterVal + ')';
+			});
+
+			this._elements.container.style.filter = filtersString;
+		};
+
+		Element.prototype.applyMatrix = function() {
+			var elemAttributes = this.getAttributes();
+			var matrixAttributePrefix = 'matrix-';
+
+			var horizontalKeys = ['r', 'g', 'b', 'a', 'm'];
+			var verticalKeys = ['r', 'g', 'b', 'a'];
+
+			var matrixString = '';
+			verticalKeys.forEach(function(verticalKey, verticalKeyIndex) {
+				if(verticalKeyIndex)
+					matrixString += '\r\n';
+				horizontalKeys.forEach(function(horizontalKey, horizontalKeyIndex) {
+					if(horizontalKeyIndex)
+						matrixString += ' ';
+
+					var matrixValue = undefined;
+					if(verticalKey === horizontalKey && typeof elemAttributes[matrixAttributePrefix + horizontalKey] !== 'undefined')
+						matrixValue = Number(elemAttributes[matrixAttributePrefix + horizontalKey]);
+					else if(typeof elemAttributes[matrixAttributePrefix + horizontalKey + '-' + verticalKey] !== 'undefined')
+						matrixValue = Number(elemAttributes[matrixAttributePrefix + horizontalKey + '-' + verticalKey]);
+					else if(verticalKey === horizontalKey)
+						matrixValue = 1;
+					else
+						matrixValue = 0;
+					matrixString += matrixValue;
+				});
+			});
+
+			this._elements.feColorMatrix.setAttribute('values', matrixString);
+		};
+
+		Element.prototype.emitMirror = function(mirrorTag, functionName, functionArgs) {
+			if(typeof functionArgs === 'undefined')
+				functionArgs = [];
+
+			var emitMirrorDetail = {function: functionName, arguments: Array.prototype.slice.call(functionArgs)};
+			if(typeof mirrorTag !== 'undefined')
+				emitMirrorDetail.tag = mirrorTag;
+
+			var emitEvent = document.createEvent('CustomEvent');
+			emitEvent.initCustomEvent('mirror', true, true, emitMirrorDetail);
+			this.dispatchEvent(emitEvent);
+		};
+
+		Element.prototype.addObservers = function() {
+			var thisElem = this;
+			thisElem.removeObservers(); // Disconnect any observers already added
+			thisElem.observer = addElementObserver(thisElem, ['childList', 'characterData', 'subtree', 'attributeOldValue'], function(mutationRecords) {
+				if(mutationRecords[0].type !== 'attributes' || mutationRecords[0].target !== thisElem) {
+					// Ignore changes to thisElem attributes, as these are handled by attributeChangedCallback
+					// Copy from outer HTML to inner
+					thisElem.removeObservers();
+					thisElem.copyChildren(thisElem, thisElem._elements.container);
+					thisElem.addObservers();
+					console.log("copy outer to inner");
+				}
+			});
+
+			thisElem.contentObserver = addElementObserver(thisElem._elements.container, ['childList', 'characterData', 'subtree', 'attributeOldValue'], function(mutationRecords) {
+				if(mutationRecords[0].type !== 'attributes' || mutationRecords[0].target !== thisElem._elements.container) {
+					// Ignore changes to thisElem attributes, as these are handled by attributeChangedCallback
+					// Copy from inner HTML to outer
+					thisElem.removeObservers();
+					thisElem.copyChildren(thisElem._elements.container, thisElem);
+					thisElem.addObservers();
+					console.log("copy inner to outer");
+				}
+			});
+		};
+
+		Element.prototype.removeObservers = function() {
+			if(typeof this.observer !== 'undefined')
+				this.observer.disconnect();
+
+			if(typeof this.contentObserver !== 'undefined')
+				this.contentObserver.disconnect();
+		};
+
+		// Called when an attribute of this element is added, removed, or updated
+		Element.prototype.attributeChangedCallback = function(attr, oldVal, newVal) {
+			this.applyCss();
+			this.applyMatrix();
+			this.crop();
+		};
+
+		Element.prototype.copyChildren = function(sourceElement, targetElement, copyForward) {
+			while(targetElement.firstChild) {
+				targetElement.removeChild(targetElement.firstChild);
 			}
 
-				/* imgSize(value, function(error, size) {
-					var crop = {left: 500, right: 500};
-					imgContainer.style.width = size.width - crop.left - crop.right;
-					imgContainer.style.height = size.height;
-
-					console.log(imgContainer.style);
-					img.style.left = crop.left;
-					//img.style.width = 'calc(100% + ' + (crop.left + crop.right) +'px)';
-
-					imgContainer.style.transform = 'scale(0.5)';
-					console.log(error, size);
-				}); */
-
-//			this.image.style.clip = 'rect(0px,500px,500px,50px)';
-//			this.image.style.transform = 'rotate(45deg)';
+			[].forEach.call(sourceElement.children, function(childElement) {
+				targetElement.appendChild(childElement);
+			});
 		};
 
-		// Fires when an attribute was added, removed, or updated
-		ElementProto.attributeChangedCallback = function(attr, oldVal, newVal) {
-			// TODO when some camera value changes, step out of active view
-			console.log("CH");
-			this.setParam(attr, newVal);
-		};
+		/* Component utility Functions */
+		// Get all attributes of element, converting keys to lowercase
+		Element.prototype.getAttributes = function(target) {
+			if(typeof target === 'undefined')
+				target = this;
 
-		ElementProto.getAttributes = function() {
 			var attributes = {};
-			for(var ctr = 0; ctr < this.attributes.length; ctr++) {
-				attributes[this.attributes[ctr].nodeName] = this.attributes[ctr].nodeValue;
+			for(var ctr = 0; ctr < target.attributes.length; ctr++) {
+				attributes[target.attributes[ctr].nodeName.toLowerCase()] = target.attributes[ctr].nodeValue;
 			}
 			return attributes;
 		};
 
-		function imgSize(src, callback) {
-			var img = new Image();
-			img.onload = function() {
-				callback(null, {height: img.height, width: img.width});
-			};
-			img.src = src; // this must be done AFTER setting onload
+		Element.prototype.getAttribute = function(attributeName, target) {
+			if(typeof target === 'undefined')
+				target = this;
+
+			for(var ctr = 0; ctr < target.attributes.length; ctr++) {
+				if(target.attributes[ctr].nodeName === attributeName)
+					return target.attributes[ctr].nodeValue;
+			}
+			return undefined;
+		};
+
+		/* Utility Functions */
+		function hasClass(el, className) {
+			if (el.classList)
+				return el.classList.contains(className);
+			else
+				return !!el.className.match(new RegExp('(\\s|^)' + className + '(\\s|$)'))
 		}
 
+		function addClass(el, className) {
+			if (el.classList)
+				el.classList.add(className);
+			else if (!hasClass(el, className)) el.className += " " + className
+		}
+
+		function removeClass(el, className) {
+			if (el.classList)
+				el.classList.remove(className);
+			else if (hasClass(el, className)) {
+				var reg = new RegExp('(\\s|^)' + className + '(\\s|$)');
+				el.className=el.className.replace(reg, ' ')
+			}
+		}
+
+		// Add observers to an element
+		function addElementObserver(element, mutations, listener) {
+			// possible mutations: 	attributes, childList, characterData
+			var observer = new MutationObserver(listener);
+
+			if(mutations.length > 0) {
+				var observerConfig = {};
+				for(var mutationIndex = 0; mutationIndex < mutations.length; mutationIndex++) {
+					observerConfig[mutations[mutationIndex]] = true;
+				}
+				observer.observe(element, observerConfig);
+			}
+
+			return observer;
+			// Returned observer can be removed with observer.disconnect()
+		}
+
+		// Add event triggers for an element
+		function addElementEventListener(element, events, listener) {
+			// if string (single event) passed, convert to Array
+			if(!Array.isArray(events))
+				events = [events];
+
+			for(var eventIndex = 0; eventIndex < events.length; eventIndex++) {
+				element.addEventListener(events[eventIndex], listener);
+			}
+		}
+
+		// Return sum of all objects passed as new object, with later arguments overwriting
 		function objectExtend() {
 			var merged = {};
-			for(argumentkey in arguments) { // loop over objects
-				if (arguments.hasOwnProperty(argumentkey)) {
-					for (var attrname in arguments[argumentkey]) { // loop over attributes of object
-						if(arguments[argumentkey].hasOwnProperty(attrname))
-							merged[attrname] = arguments[argumentkey][attrname];
-					}
+			objectForEach(arguments, function(argument) {
+				for (var attrname in argument) {
+					if(argument.hasOwnProperty(attrname))
+						merged[attrname] = argument[attrname];
 				}
-			}
+			});
 			return merged;
 		}
 
-		window.AdjustableImage = document.registerElement('adjustable-image', {
-			prototype: ElementProto
-		});
+		// Iterate over object properties
+		function objectForEach(object, callback) {
+			// run function on each property (child) of object
+			var property;
+			for(property in object) { // pull keys before looping through?
+				if (object.hasOwnProperty(property))
+					callback(object[property], property, object);
+			}
+		}
+
+		// Filter object properties
+		function objectFilter(object, filter) {
+			// filter object properties (children) using filter function
+			// similar to array filter function
+			var result = {};
+			this.objectForEach(object, function(child, property, parent) {
+				if(filter(child, property, parent))
+					result[property] = child;
+			});
+			return result;
+		}
+
+		// Returns property of object whose value matches search value
+		function objectPropertyOf(object, searchValue) {
+			var property;
+			for(property in object) {
+				if(object.hasOwnProperty(property) && object[property] === searchValue)
+					return property;
+			}
+			return undefined;
+		}
+
+		document.registerElement(componentName, Element);
 	})(window, document);
 </script>
