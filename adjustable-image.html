@@ -7,7 +7,7 @@
 		}
 	</style>
 	<div id="outerContainer" style="width: 100%; height: 100%; overflow: hidden;">
-		<div id="container" style="width: 100%; height: 100%; background-color: #00ff00; clip-path: url(#cropRectangle); overflow: hidden;"></div>
+		<div id="container" style="width: 100%; height: 100%; background-color: #00ff00; clip-path: url(#cropRectangle); overflow: hidden;"><slot></slot></div>
 	</div>
 	<svg height="0" width="0" style="display: none;">
 		<defs>
@@ -46,9 +46,6 @@
 				let template = componentDoc.querySelector('template[is=adjustable-image]').content;
 				shadow.appendChild(document.importNode(template, true));
 
-				// get and merge params
-				thisElem.elementAttributes = thisElem.getAttributes();
-
 				thisElem._config = {
 					colorizeFilterId: 'colorize'
 				};
@@ -63,30 +60,19 @@
 
 				// For Polyfill
 				if(document == componentDoc) {
-					document.head.appendChild(thisElem._elements.svg); // Append SVG to end of head so
+					document.head.appendChild(thisElem._elements.svg); // Append SVG to end of head
 					let currentColorizedFilterId = thisElem._config.colorizeFilterId;
 					thisElem._config.colorizeFilterId = thisElem._uniqueId();
 					thisElem._elements.svg.querySelector('#' + currentColorizedFilterId).setAttribute('id', thisElem._config.colorizeFilterId)
 				}
-
-
-
 			}
 
 			connectedCallback() {
 				let thisElem = this;
 
 				thisElem.crop();
-
-				// Copy contents
-				thisElem.copyChildren(thisElem, thisElem._elements.container);
-
-				// Set up observer on children and character data. Remove if not needed
-				thisElem.addObservers();
-
 				thisElem.applyCss();
 				thisElem.applyMatrix();
-
 
 				// Triggered when the window is resized
 				window.addEventListener('resize', function() {
@@ -182,55 +168,11 @@
 				this.dispatchEvent(emitEvent);
 			};
 
-			addObservers() {
-				let thisElem = this;
-				thisElem.removeObservers(); // Disconnect any observers already added
-				thisElem.observer = thisElem._addElementObserver(thisElem, ['childList', 'characterData', 'subtree', 'attributeOldValue'], function(mutationRecords) {
-					if(mutationRecords[0].type !== 'attributes' || mutationRecords[0].target !== thisElem) {
-						// Ignore changes to thisElem attributes, as these are handled by attributeChangedCallback
-						// Copy from outer HTML to inner
-						thisElem.removeObservers();
-						thisElem.copyChildren(thisElem, thisElem._elements.container);
-						thisElem.addObservers();
-						console.log("copy outer to inner");
-					}
-				});
-
-				thisElem.contentObserver = thisElem._addElementObserver(thisElem._elements.container, ['childList', 'characterData', 'subtree', 'attributeOldValue'], function(mutationRecords) {
-					if(mutationRecords[0].type !== 'attributes' || mutationRecords[0].target !== thisElem._elements.container) {
-						// Ignore changes to thisElem attributes, as these are handled by attributeChangedCallback
-						// Copy from inner HTML to outer
-						thisElem.removeObservers();
-						thisElem.copyChildren(thisElem._elements.container, thisElem);
-						thisElem.addObservers();
-						console.log("copy inner to outer");
-					}
-				});
-			};
-
-			removeObservers() {
-				if(typeof this.observer !== 'undefined')
-					this.observer.disconnect();
-
-				if(typeof this.contentObserver !== 'undefined')
-					this.contentObserver.disconnect();
-			};
-
 			// Called when an attribute of this element is added, removed, or updated
 			attributeChangedCallback(attr, oldVal, newVal) {
 				this.applyCss();
 				this.applyMatrix();
 				this.crop();
-			};
-
-			copyChildren(sourceElement, targetElement, copyForward) {
-				while(targetElement.firstChild) {
-					targetElement.removeChild(targetElement.firstChild);
-				}
-
-				[].forEach.call(sourceElement.children, function(childElement) {
-					targetElement.appendChild(childElement);
-				});
 			};
 
 			/* Component utility Functions */
@@ -244,23 +186,6 @@
 					attributes[target.attributes[ctr].nodeName.toLowerCase()] = target.attributes[ctr].nodeValue;
 				}
 				return attributes;
-			}
-
-			// Add observers to an element
-			_addElementObserver(element, mutations, listener) {
-				// possible mutations: 	attributes, childList, characterData
-				let observer = new MutationObserver(listener);
-
-				if(mutations.length > 0) {
-					let observerConfig = {};
-					for(let mutationIndex = 0; mutationIndex < mutations.length; mutationIndex++) {
-						observerConfig[mutations[mutationIndex]] = true;
-					}
-					observer.observe(element, observerConfig);
-				}
-
-				return observer;
-				// Returned observer can be removed with observer.disconnect()
 			}
 
 			// Iterate over object properties
@@ -282,11 +207,8 @@
 				return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
 					s4() + '-' + s4() + s4() + s4();
 			};
-
-
 		}
 
 		customElements.define('adjustable-image', AdjustableImage);
-
 	})();
 </script>
