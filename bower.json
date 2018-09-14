@@ -1,6 +1,6 @@
 {
   "name": "adjustable-image",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A web component that applies cropping and color filters to an image or other element",
   "authors": [
     "John Murphy-Teixidor <johnvmt@gmail.com>"

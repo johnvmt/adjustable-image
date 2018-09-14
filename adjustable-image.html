@@ -59,7 +59,7 @@
 				};
 
 				// For Polyfill
-				if(document == componentDoc) {
+				if(document === componentDoc) {
 					document.head.appendChild(thisElem._elements.svg); // Append SVG to end of head
 					let currentColorizedFilterId = thisElem._config.colorizeFilterId;
 					thisElem._config.colorizeFilterId = thisElem._uniqueId();
@@ -68,16 +68,27 @@
 			}
 
 			connectedCallback() {
-				let thisElem = this;
+				const thisElem = this;
 
-				thisElem.crop();
-				thisElem.applyCss();
-				thisElem.applyMatrix();
+				thisElem.updateCropsAndStyles();
+
+				// Observe attributes
+				const observer = new MutationObserver(function() {
+					thisElem.updateCropsAndStyles();
+				});
+
+				observer.observe(thisElem, {attributes: true, childList: false, subtree: false });
 
 				// Triggered when the window is resized
 				window.addEventListener('resize', function() {
 					thisElem.crop();
 				});
+			}
+
+			updateCropsAndStyles() {
+				this.crop();
+				this.applyCss();
+				this.applyMatrix();
 			}
 
 			crop() {
@@ -111,7 +122,7 @@
 			}
 
 			applyCss() {
-				let filters = this.getAttributes();
+				let filters = this._getAttributes();
 
 				let filterPrefix = 'filter-';
 				let filtersString = 'url(#' + this._config.colorizeFilterId + ')';
@@ -125,7 +136,7 @@
 			};
 
 			applyMatrix() {
-				let elemAttributes = this.getAttributes();
+				let elemAttributes = this._getAttributes();
 				let matrixAttributePrefix = 'matrix-';
 
 				let horizontalKeys = ['r', 'g', 'b', 'a', 'm'];
@@ -168,16 +179,9 @@
 				this.dispatchEvent(emitEvent);
 			};
 
-			// Called when an attribute of this element is added, removed, or updated
-			attributeChangedCallback(attr, oldVal, newVal) {
-				this.applyCss();
-				this.applyMatrix();
-				this.crop();
-			};
-
 			/* Component utility Functions */
 			// Get all attributes of element, converting keys to lowercase
-			getAttributes(target) {
+			_getAttributes(target) {
 				if(typeof target === 'undefined')
 					target = this;
 
