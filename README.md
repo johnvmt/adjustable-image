@@ -10,8 +10,7 @@ Web component to embed an image in a webpage, with cropping controls. Image will
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	
 		<!-- Polyfill -->
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/webcomponentsjs/1.0.4/webcomponents-lite.js"></script>
-		<link rel="import" href="adjustable-image.html">
+		<script type="module" src="adjustable-image.js"></script>
 	
 		<style>
 			body, html {
