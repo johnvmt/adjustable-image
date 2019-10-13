@@ -1,11 +1,10 @@
 class AdjustableImage extends HTMLElement {
 	constructor() {
-		super(); // Always call super first in constructor
+		super();
 
-		let thisElem = this;
+		const thisElem = this;
 
-		// Gets content from <template>
-		let shadow = thisElem.attachShadow({mode: 'open'});
+		const shadow = thisElem.attachShadow({mode: 'open'});
 
 		shadow.innerHTML = `<style>
 				:host {
@@ -15,7 +14,7 @@ class AdjustableImage extends HTMLElement {
 				}
 			</style>
 			<div id="outerContainer" style="width: 100%; height: 100%; overflow: hidden;">
-				<div id="container" style="width: 100%; height: 100%; background-color: #00ff00; clip-path: url(#cropRectangle); overflow: hidden;"><slot></slot></div>
+				<div id="container" style="width: 100%; height: 100%; clip-path: url(#cropRectangle); overflow: hidden;"><slot></slot></div>
 			</div>
 			<svg height="0" width="0" style="display: none;">
 				<defs>
@@ -59,14 +58,14 @@ class AdjustableImage extends HTMLElement {
 		thisElem.updateCropsAndStyles();
 
 		// Observe attributes
-		const observer = new MutationObserver(function() {
+		const observer = new MutationObserver(() => {
 			thisElem.updateCropsAndStyles();
 		});
 
 		observer.observe(thisElem, {attributes: true, childList: false, subtree: false });
 
 		// Triggered when the window is resized
-		window.addEventListener('resize', function() {
+		window.addEventListener('resize', () => {
 			thisElem.crop();
 		});
 	}
@@ -85,7 +84,7 @@ class AdjustableImage extends HTMLElement {
 		let cropLeft = Number(thisElem.getAttribute('crop-left'));
 		let cropRight = Number(thisElem.getAttribute('crop-right'));
 
-		window.requestAnimationFrame(function() {
+		window.requestAnimationFrame(() => {
 			let originalWidth = thisElem._elements.container.clientWidth;
 			let originalHeight = thisElem._elements.container.clientHeight;
 
@@ -95,10 +94,10 @@ class AdjustableImage extends HTMLElement {
 			let clipHeight = originalHeight * ((100 - (cropTop + cropBottom)) / 100);
 
 			// Crop
-			thisElem._elements.clipPath.setAttribute('x', clipX);
-			thisElem._elements.clipPath.setAttribute('y', clipY);
-			thisElem._elements.clipPath.setAttribute('width', clipWidth);
-			thisElem._elements.clipPath.setAttribute('height', clipHeight);
+			thisElem._elements.clipPath.setAttribute('x', String(clipX));
+			thisElem._elements.clipPath.setAttribute('y', String(clipY));
+			thisElem._elements.clipPath.setAttribute('width', String(clipWidth));
+			thisElem._elements.clipPath.setAttribute('height', String(clipHeight));
 
 			// Reposition & scale
 			thisElem._elements.container.style.position = 'relative';
@@ -112,10 +111,11 @@ class AdjustableImage extends HTMLElement {
 
 		let filterPrefix = 'filter-';
 		let filtersString = 'url(#' + this._config.colorizeFilterId + ')';
-		this._objectForEach(filters, function(filterVal, filterKey) {
-			if(filterKey.indexOf(filterPrefix) === 0)
-				filtersString += " " + filterKey.substr(filterPrefix.length) + '(' + filterVal + ')';
-		});
+
+		for(let filterKey in filters) {
+			if(filters.hasOwnProperty(filterKey) && filterKey.indexOf(filterPrefix) === 0)
+				filtersString += ' ' + filterKey.substr(filterPrefix.length) + '(' + filters[filterKey] + ')';
+		}
 
 		this.style['filter'] = filtersString;
 		this.style['-webkit-filter'] = filtersString;
@@ -129,7 +129,7 @@ class AdjustableImage extends HTMLElement {
 		let verticalKeys = ['r', 'g', 'b', 'a'];
 
 		let matrixString = '';
-		verticalKeys.forEach(function(verticalKey, verticalKeyIndex) {
+		verticalKeys.forEach((verticalKey, verticalKeyIndex) => {
 			if(verticalKeyIndex)
 				matrixString += '\r\n';
 			horizontalKeys.forEach(function(horizontalKey, horizontalKeyIndex) {
@@ -176,16 +176,6 @@ class AdjustableImage extends HTMLElement {
 			attributes[target.attributes[ctr].nodeName.toLowerCase()] = target.attributes[ctr].nodeValue;
 		}
 		return attributes;
-	}
-
-	// Iterate over object properties
-	_objectForEach(object, callback) {
-		// run function on each property (child) of object
-		let property;
-		for(property in object) { // pull keys before looping through?
-			if (object.hasOwnProperty(property))
-				callback(object[property], property, object);
-		}
 	}
 
 	_uniqueId() {

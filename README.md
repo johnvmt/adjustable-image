@@ -1,4 +1,4 @@
-## Description
+## adjustable-image
 
 Web component to embed an image in a webpage, with cropping controls. Image will entirely fill its container
 
@@ -9,8 +9,7 @@ Web component to embed an image in a webpage, with cropping controls. Image will
 	<head>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	
-		<!-- Polyfill -->
-		<script type="module" src="adjustable-image.js"></script>
+		<script type="module" src="AdjustableImage.js"></script>
 	
 		<style>
 			body, html {
@@ -55,7 +54,7 @@ Web component to embed an image in a webpage, with cropping controls. Image will
 	
 		<br/>IFRAME, RED ONLY AND CROPPED 10% ALL THE WAY AROUND
 		<adjustable-image matrix-r="1" matrix-g="0" matrix-b="0" crop-top="10" crop-left="10" crop-right="10" crop-bottom="10">
-			<iframe src="http://cnn.com" style="width: 100%; height: 100%;"></iframe>
+			<iframe src="http://wikipedia.org" style="width: 100%; height: 100%;"></iframe>
 		</adjustable-image>
 	</div>
 	</body>
